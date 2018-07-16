@@ -1,0 +1,25 @@
+{
+  "name": "taskfunctional",
+  "version": "1.0.0",
+  "description": "functional features for task library",
+  "main": "build/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glaunay/taskFunctional.git"
+  },
+  "author": "GL",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/glaunay/taskFunctional/issues"
+  },
+  "homepage": "https://github.com/glaunay/taskFunctional#readme",
+  "dependencies": {
+    "@types/clone": "^0.1.30",
+    "@types/node": "^10.5.2",
+    "clone": "^2.1.1",
+    "winston": "^3.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+      "allowJs" : true,
+      "baseUrl": ".",
+      "lib": [
+          "dom",
+          "es7"
+      ],
+      "listEmittedFiles" : true,
+      "listFiles" : false,
+      "maxNodeModuleJsDepth" : 10,  
+      "module": "commonjs",
+      "moduleResolution" : "node",
+      "outDir" : "./build/",
+      "paths": {
+          "*": [
+              "node_modules/"
+          ]
+      },
+      "preserveConstEnums" : true,
+      "removeComments" : false,
+      "target": "ES6"
+  },
+  "files": [ // path to the files to compile
+      "./ts/src/index.ts",
+      "./ts/src/tests/map.ts",
+      "./ts/src/tests/dummyTask.ts",
+      "./ts/src/logger.ts"
+  ],
+  "exclude" : [  
+   // "../taskobject"
+  ]
+}
