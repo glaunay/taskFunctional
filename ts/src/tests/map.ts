@@ -7,9 +7,10 @@
 
 import jobManager = require('ms-jobmanager');
 import dummyTask = require('./dummyTask');
+import dummyTask_s2 = require('./dummyTask_s2');
 import stream = require('stream');
 import {logger, setLogLevel} from '../logger.js';
-
+import utils = require('util');
 
 import {map} from '../index';
 
@@ -17,7 +18,7 @@ import {map} from '../index';
 logger.info("\t\tStarting map test");
 
 
-let inputs:String|{}[] = ["5", "10", "4", "2"];
+let inputs:any[] = ["5", "10", "4", "2"];
 inputs = inputs.map((e) => {return { "dummyInput":e };});
 /*
 
@@ -28,14 +29,27 @@ jobManager.start({ "TCPip": "localhost", "port": "2323" })
         'jobManager' : jobManager,
         'jobProfile' : 'dummy'
     }
+    let myOptions = inputs.map((e, i)=>{
+        return { 'logLevel': 'debug', 'exportVar' : { 'iterValue' :  i } };
+    });
+    /*
     let myOptions = {
         'logLevel': 'debug'/*,
         'modules' : ['myModule1', 'myModule2'],
-        'exportVar' : { 'myVar1' : '/an/awesome/path/to/a/file.exe',*/
-    };
+        'exportVar' : { 'myVar1' : '/an/awesome/path/to/a/file.exe'},
+    };*/
+    /*
     let dTask = new dummyTask.Task(myManagement, myOptions);
+    let dTask_s2 = new dummyTask_s2.Task(myManagement, myOptions);
+*/
 
-    map(<any[]>inputs, dTask, dummyTask.Task);
+map(myManagement, <any[]>inputs, dummyTask.Task).join( (data) => {
+        logger.info(`${ utils.format(data) }`);
+    });
+
+
+  //  map(myManagement, <any[]>inputs, dummyTask.Task)
+  //  .map(dummyTask_s2.Task, myOptions)
 
     /*
     let aFirstInput = "2";

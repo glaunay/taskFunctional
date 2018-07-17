@@ -1,4 +1,4 @@
-import logger = require('winston');
+import winston = require('winston');
 //var Loggly = require('winston-loggly').Loggly;
 //var loggly_options={ subdomain: "mysubdomain", inputToken: "efake000-000d-000e-a000-xfakee000a00" }
 //logger.add(Loggly, loggly_options);
@@ -7,45 +7,49 @@ import logger = require('winston');
 //module.exports=logger;
 
 
+const config = {
+    levels: {
+      error: 0,
+      debug: 1,
+      warn: 2,
+      data: 3,
+      info: 4,
+      verbose: 5,
+      silly: 6,
+      custom: 7
+    },
+    colors: {
+      error: 'red',
+      debug: 'blue',
+      warn: 'yellow',
+      data: 'grey',
+      info: 'green',
+      verbose: 'cyan',
+      silly: 'magenta',
+      custom: 'yellow'
+    }
+  };
+  
+  winston.addColors(config.colors);
 
-/*logger.setLevels({
-    error:0,
-    warn:1,
-    info: 2,
-    verbose:3,
-    debug:4,
-    silly:5
-});
-*/
-logger.addColors({
-    debug: 'green',
-    info:  'cyan',
-    verbose:'gray',
-    silly: 'magenta',
-    warn:  'yellow',
-    error: 'red'
-});
-
-logger.remove(logger.transports.Console);
-logger.add(new logger.transports.Console({ 
+  winston.remove(winston.transports.Console);
+  winston.add(new winston.transports.Console({ 
     level: 'debug',
-    format: logger.format.combine(
-        logger.format.simple(),
-        logger.format.colorize()
+    format: winston.format.combine(
+        winston.format.simple(),
+        winston.format.colorize()
   ) }));
 
 
-logger.add(new logger.transports.File ({ filename: "./logs/devel.log" }));
+winston.add(new winston.transports.File ({ filename: "./logs/devel.log" }));
 
-type logLvl = 'debug'|'info'|'verbose'|'silly'|'warn'|'error';
-function isLogLvl(value:string): value is logLvl {
-    return value === 'debug' || value === 'info' || value === 'verbose' || value === 'silly'
-    || value === 'warn' || value === 'error';
+function isLogLvl(value:string):boolean {
+    return config.levels.hasOwnProperty(value)
 }
 export function setLogLevel(value:string):void {
     if(!isLogLvl(value))
         throw `Unrecognized logLvel "${value}"`;
-    logger.level=value;
+    winston.level = value;
 }
 
-export {logger};
+export {winston as logger};
