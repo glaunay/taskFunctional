@@ -14,21 +14,37 @@ import utils = require('util');
 
 import {map} from '../index';
 
+import program = require('commander');
+
+
+program
+  .version('0.1.0')
+  .option('-a, --basic', 'one map test')
+  .option('-b,--map2map', 'map into map')
+  .option('-c, --map2map2', 'map into a map 2')
+  .option('-t, --templating', 'using template')
+  .parse(process.argv);
+
 
 logger.info("\t\tStarting map test");
+//logger.info(`${utils.format(program)}`);
 
 
 let inputs:any[] = ["5", "10", "4", "2"];
 inputs = inputs.map((e) => {return { "dummyInput":e };});
-/*
 
-*/
+let inputs2:any[] = ["5", "10", "4", "2"];
+inputs2 = inputs2.map((e) => {return { "dummyInput_s3b":e };});
+
 jobManager.start({ "TCPip": "localhost", "port": "2323" })
     .on("ready", () => {
     let myManagement = {
         'jobManager' : jobManager,
         'jobProfile' : 'dummy'
     }
+    
+    logger.info(`${utils.format(myManagement)}`);
+
     let myOptions = inputs.map((e, i)=>{
         return { 'logLevel': 'debug', 'exportVar' : { 'iterValue' :  i } };
     });
@@ -43,15 +59,61 @@ jobManager.start({ "TCPip": "localhost", "port": "2323" })
     let dTask_s2 = new dummyTask_s2.Task(myManagement, myOptions);
 */
 
-map(myManagement, <any[]>inputs, dummyTask.Task).join( (data) => {
-        logger.info(`${ utils.format(data) }`);
+
+
+
+// TRYIN TO FIX SUBMISISON MULITPLE BUG
+inputs=inputs.slice(0, 2);
+
+
+
+function display(d) {
+    logger.info(`Chain joined OUTPUT:\n${ utils.format(d) }`);
+}
+
+if(program.basic) {
+    logger.info(`Basic map test`);
+    map(myManagement, <any[]>inputs, dummyTask.Task).join( display );
+}
+else if(program.map2map) {
+    logger.info(`piping a map into a map_1 (no additional args)`);
+    map(myManagement, <any[]>inputs, dummyTask.Task)
+    .map(dummyTask_s2.Task).join( display );
+}
+else if(program.map2map2) {
+    let addInput = program.templating ? inputs2[0] : inputs2;
+    if(program.templating)
+        logger.info(`piping a map into a map_2 (additional inputs explicit)`);
+    else    
+        logger.info(`piping a map into a map_2 (additional inputs by template)`);
+
+    map(myManagement, <any[]>inputs, dummyTask.Task)
+    .map(dummyTask_s2.Task, addInput).join( (data) => {
+        logger.info(`join OUTPUT:\n${ utils.format(data) }`);
     });
 
+}
 
+
+
+// pipeMapping w/ a new JobOpt template args
   //  map(myManagement, <any[]>inputs, dummyTask.Task)
   //  .map(dummyTask_s2.Task, myOptions)
 
-    /*
+// pipeMapping w/ a new JobOpt iteree args
+  //  map(myManagement, <any[]>inputs, dummyTask.Task)
+  //  .map(dummyTask_s2.Task, myOptions)
+
+
+  // pipeMapping w/ additional inputs   --> Template / Iteree ??
+  //  map(myManagement, <any[]>inputs, dummyTask.Task)
+  //  .map(dummyTask_s2.Task, myOptions)
+    
+  
+  
+  
+  
+  /*
     let aFirstInput = "2";
     let rs = new stream.Readable();
     rs.push( JSON.stringify({ "dummyInput":aFirstInput }) ); // JSON format

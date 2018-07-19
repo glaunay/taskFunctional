@@ -10,7 +10,7 @@ export class Task extends tk.Task {
 
             this.coreScript = this.rootdir + '/../../data/dummyCoreScript_s2.sh'; // (3)
             
-            this.slotSymbols = ['dummyInput_s2']; // (4)
+            this.slotSymbols = ['dummyInput_s3a', 'dummyInput_s3b']; // (4)
             super.initSlots(); // (5)
         }
         prepareJob (inputs) {
@@ -20,7 +20,7 @@ export class Task extends tk.Task {
         /* REMARK : 'pathOfCurrentDir' is the key you gave in your core script as JSON output */
         prepareResults (chunkJson) {
             return {
-                [this.outKey] : chunkJson.dummyOutput_s2 
+                [this.outKey] : chunkJson.dummyOutput_s3 
             }
         }
 }

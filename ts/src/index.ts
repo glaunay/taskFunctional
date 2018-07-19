@@ -1,5 +1,5 @@
 //import typ = require('taskobject/ts/src/types/index');
-
+import events = require('events');
 import stream = require('stream');
 import util = require('util');
 import clone = require('clone');
@@ -30,7 +30,8 @@ interface managementOpt {
 } 
 
 
-/*
+/* THIS FUNCTION SHOULD BE IMPORTED FROM MS-JOBMANAGER TYPES !!!!
+    but can't use d.ts properly yet
 type optKeys =
     "modules"
     | "exportVar"
@@ -52,22 +53,64 @@ interface optIterType {
 
 function mergeSymbol(taskC:any, littInputs:{}) {
     new Set();
+}
 
+/* Check all  litt objects have identical keys and return them*/
+function hasIdenticalKeys(opt:{}[]):Set<string> {
+    if (!opt) return new Set([]);
 
+    let refSet:Set<string> = new Set( Object.keys(opt[0]) ); 
+    for (let stuff of opt) {
+        let curSet = new Set( Object.keys(stuff) ); 
+        let difference = new Set( [...refSet].filter( (x => !curSet.has(x)) ) );
+
+        if(difference.size != 0)
+            throw("Uneven parameters");
+    } 
+    return refSet;
+}
+
+// Merge the results and the newly provided data to create a list of litterals w/ all keys matching
+// downstream task slots
+function coherceInputs(refereeTask:any, upStreamInputs:{}[], optInputs?:{}[]):{}[] {
+    let taskSlots:Set<string> = new Set(refereeTask.slotSymbols); // The set of available slot symbols
+    let optInputSlot:Set<string> = optInputs ? hasIdenticalKeys(optInputs): new Set([]); // The set of input symbol present in all input litterals
+   
+    if(taskSlots.size - optInputSlot.size != 1) // There must be a diff of one b/w set sizes, ie: one left for the upstream output
+        throw ("Inconsistent task Slots");
+
+    let availableSymbol:string|string[] = [...new Set(
+        [...taskSlots].filter(x => !optInputSlot.has(x)) )];
+    if (availableSymbol.length != 1)
+        throw (`uncorrect slot symbol left (${availableSymbol.length}:${utils.format(availableSymbol)})`);
+    logger.debug(`${availableSymbol}`);
+        //return [...availableSymbol];
+    
+        let upStreamSlot:string = availableSymbol[0];
+    return upStreamInputs.map((e, i) => { 
+        let d:{} = optInputs ?  optInputs[i] : {};
+        d[ upStreamSlot ] = e['out'].toString();
+        return d;
+    });
 }
 
 // Object returned by the map function
-class functionalShell {
+class functionalShell extends events.EventEmitter {
     jobManager:any;
-    taskArray:Promise<String>[] = [];
+    //taskArray:Promise<String>[] = [];
+    taskArray:{ (data: string): Promise<string>; } [] = [];
     
+    resolveProm?:Promise<string[]>;
+
     constructor(jobManager) {
-        this.jobManager= jobManager;
+        super();
+        this.jobManager = jobManager;
     }
 
     _push(inputLitt:{}, task:any/*taskLib.taskObject*/) {
         this.taskArray.push(
-            new Promise( (resolve, reject)=> {
+            () => {
+            return new Promise( (resolve, reject)=> {
                 task.on("processed", (taskOutput:string)=>{
                     console.log(`OOOO=======\n${ util.inspect(taskOutput, {showHidden: false, depth: null}) }`);
                     resolve(taskOutput);
@@ -76,74 +119,104 @@ class functionalShell {
                     let someStream = new streams.Readable();
                     let x = {};
                     x[symbol] = inputLitt[symbol];
-                    logger.debug(`content : ${utils.format(x)}`);
+                    //logger.debug(`content : ${utils.format(x)}`);
                     someStream.push(JSON.stringify(x));
                     someStream.push(null);
-                    logger.debug(`sSym : ${symbol} \n ${utils.format(task[symbol])}`);
+                    //logger.debug(`sSym : ${symbol} \n ${utils.format(task[symbol])}`);
                     someStream.pipe(task[symbol]);
                 }
             })
-        );
+        });
     }
-    _join() {
-        /*Promise.all(this.taskArray).then((results:string[])=>{                
-           // this.prepareResults(results);
-           console.dir(`***${utils.format(results)}`);
-        });*/
+    _resolve() {
+        this.resolveProm = Promise.all( this.taskArray.map(t => t('x')) );
+        this.resolveProm.then( (r)=> this.emit('resolved', r) );
+        //tasks.map(t => t())
+        //return Promise.all(this.taskArray);
+    }
+   /* _join() {
         return Promise.all(this.taskArray);
 
-    }
+    }*/
     join(callback) {
-        this._join().then((r)=>{
+        //if we do single stage map, it needs to be resolve first
+        /*if (!this.resolveProm)
+            this._resolve();*/
+        // if it is a downstream map, its resolve was already bound to upstream resolve...
+        
+        this.on('resolved', (r) => {callback(r);});
+
+        /*this.resolveProm.then((r)=>{
             callback(r);
-        })
+        });*/
+
+        /*this._resolve().then((r)=>{
+            callback(r);
+        })*/
     }
     // pipe into another map
     // Domain size is the results of the previous map
     // Option inputs can be provided 
-    map(taskC:any, ...optParam:any[]) { 
+    map(taskC:any, ...optParam:any[]):functionalShell { 
+
         /*
-         We check slot symbols of the downstream map function
-            if there is more than one -> error and no optInput
-         */
-        
+        We create the downstream fShell and return is synchronously 
+        to provide declarative interface
+        */
+        let newShell = new functionalShell(this.jobManager);
+        //return map({ 'jobManager' : this.jobManager, 'jobProfile': jobProfile }, newInputs, taskC, newInputs);
+
         /*let managmentBean = {
             jobProfile : optInput.hasOwnProperty('jobProfile') ? optInput.jobProfile : undefined,
             jobManager : this.jobManager
          }*/
-        
-        let refereeTask = new taskC(this.jobManager);
-        this._join().then(
-            (results) => {
+        //invoke the blue print task
+        let refereeTask = new taskC({jobManager : this.jobManager});
+        // Register this._resolve Promise
+        //this._resolve();
+        // Bind Downstream map feedint and resolving to 
+        // this resolve
+        this.on('resolved', (results) => {
+                let nTask = results.length;
                 let newInputs;
+                let newOptions;
                 let jobProfile = undefined;
+                /* Parsing trailing arguments policy
+                    jobProfile:string
+                    jobOPtions:{TemplateJobOpt}|[{jobOpt},..]
+                    jobInputs:{TemplateJobInp}|[{jobInp},..]
+                */
+                // Optional args is a string -> jobProfile
                 for (let opt of optParam) {
                     if (typeof opt === 'string') {
                         jobProfile = opt;
                         continue;
                     }
-
-                if(opt instanceof Array) {
-                    if (opt.length != results.length)
-                        throw('iterable rest parameters has wrong length');
-                    if( isOptIterType(opt[0]) ) {
-                        
-                        let newInputs = coherceInputOpt(refereeTask, results, opt);
-
-
-                    }
-
-
-            }
-        }
-
-
-
-            if(undefined)
-                map(managmentBean, newInputs, taskC)
-            } 
-        )
-
+                
+                // Optional args is a list -> list of inputs (slotSymbol, value)
+                // OR list of options 
+                    let tmpArray:any[] = normalize(opt, nTask);
+                    if( isOptIterType(tmpArray[0]) )
+                        newOptions = coherceOptions(results, tmpArray);
+                    else
+                        newInputs = coherceInputs(refereeTask, results, tmpArray);
+                }
+                // We prepare stuff
+                if (!newInputs)
+                    newInputs = coherceInputs(refereeTask, results);
+                if (!newOptions)
+                    newOptions = coherceOptions(results);
+                // We update the downstream shell by reusing the top-level map function
+                // Then resolve it
+                logger.debug(`About to map downstream::\n${utils.format(newInputs)}\n${utils.format(newOptions)}`);
+                map({ 'jobManager' : this.jobManager, 'jobProfile': jobProfile }, newInputs, taskC, newInputs, newShell);      
+                newShell._resolve();          
+               // newShell._resolve();
+            });
+        // Resolve current map
+        //this._resolve();
+        // Return downstream map interface
+        return newShell;
     }
     reduce(callback) {
 
@@ -155,11 +228,12 @@ class functionalShell {
     Depending on input : if a list, returns it
                          if a litteral duplicate it
 */
-function mayDuplicate(opt:any, n:number) {
+function normalize(opt:any, n:number):any[] {
     if(opt instanceof Array) {
         if (opt.length != n)
-            throw('iterable mayDuplicate parameters has wrong length');
+            throw('iterable normalize parameters has wrong length');
         return opt;
+    }
     let array = [];
     for (let i = 0 ; i < n ; i++) {
         array.push(opt);
@@ -167,47 +241,13 @@ function mayDuplicate(opt:any, n:number) {
     return array;
 }
 
-function hasIdenticalKeys(opt:{}[]):Set {
-    if (!opt) return new Set([]);
-
-    let refSet = new Set( Object.keys(opt[0]) ); 
-    for (let stuff:{} of opt) {
-        let curSet = new Set( Object.keys(stuff) ); 
-        let difference = new Set(
-            [...refSet].filter(x => !curSet.has(x)) );
-
-        if(difference.size != 0)
-            throw("Uneven parameters");
-    } 
-    return refSet;
-}
-
-// Merge the results and the newly provided data to create a list of litterals w/ all keys matching
-// downstream task slots
-function coherceInputs(refereeTask:any, inputs:{}[], optInputs:{}[]):{}[] {
-
-    let taskSlots = new Set(refereeTask.slotSymbol);
-    let inputSlot:Set = hasIdenticalKeys(inputs);
-   
-    if(taskSlots.size - inputSlot.size != 1)
-        throw ("Inconsistent task Slots");
-
-    let availableSymbol = new Set(
-        [...taskSlots].filter(x => !inputSlot.has(x)) );
-    return [{}]
-}
-
-
 //Should do the same for inputs
 function coherceOptions(inputsIter:any[], optInputs?:{}[]|{}):optIterType[] {
 
     let optIterTypeFmt:optIterType[] = [];
     if(!optInputs)
-        optIterTypeFmt = inputsIter.map(()=>{
-            return {
-                logLevel : 'debug'
-            };
-        });
+        return inputsIter.map( (x) => { return {logLevel : 'debug'}; });
+
 
     if(optInputs instanceof Array) {
         if(optInputs.length != inputsIter.length)
@@ -233,7 +273,12 @@ map(task_iteree, dataAtom).map((result)=> {
 */
 
 // Return something which provides map and reduce
-export function map(managmentBean:managementOpt, inputs:any[], taskC:any, optIteree?:optIterType|optIterType[]):functionalShell {
+/*
+2 calling contexts:
+no staticShell is passed
+a staticShell is passed
+*/
+export function map(managmentBean:managementOpt, inputs:any[], taskC:any, optIteree?:optIterType|optIterType[], staticShell?:functionalShell):functionalShell {
 
 
 // OPTIONS ITERATOR
@@ -249,95 +294,24 @@ export function map(managmentBean:managementOpt, inputs:any[], taskC:any, optIte
     let jmClient = taskArray[0].jobManager;
     let jProfile = managmentBean.jobProfile ? managmentBean.jobProfile : undefined;
     console.log(`Mapping ${utils.format(inputs)} vs ${inputSymbols}`)
-//    if (inputSymbols.length > 1) {
- //       throw 'TO DO';
-        /*
-            check inpu type; it must be literral.
-            Its keys must match inputsymbols
-        */
 
-        // SET OPERATIONS ES7
-        //set(inputSymbols) - set(itereeOpt.keys) == 
 
     for (let x of inputSymbols) 
         for (let y of inputs) 
             if (! y.hasOwnProperty(x))
                 throw `Property ${x} missing in inputs iteree`;
-    console.log("YEAHHHH");
-
-    let obj:functionalShell = new functionalShell(jmClient);
-
-
+    if (!staticShell)
+        logger.debug("map basic check Ok, invoking functional shell");
+    else 
+        logger.debug("map basic check Ok, updating passed functional shell");
+    
+    let obj:functionalShell = staticShell ? staticShell : new functionalShell(jmClient);
     // BIND BOTH TASK ITERATORS AND INPUT INTERATOR
     taskArray.forEach((t, i)=>{
         obj._push(inputs[i], t);
-
     })
-    obj._join();
 
+    obj._resolve();
     return obj;
-/*
-    for (let i = 0 ; i < inputs.length -1 ; i++)
-        taskArray.push(clone(taskObject));
-
-    let tasksInputs = inputs.map((e)=> {
-        let rs = new stream.Readable();
-        rs.push( JSON.stringify({ inputTaf:aFirstInput }) ); // JSON format
-        rs.push(null); 
-    });
-        let rs = new stream.Readable();
-        rs.push( JSON.stringify({ "dummyInput":aFirstInput }) ); // JSON format
-        rs.push(null);        
-*/
-
 }
-    // invert true means we return something of the size of the list of task
-    // invert false means we return something of the size of the list of input
- /*   processIteree(inputs, taskConstructors, jmClient);
-    if (invert) {  // [taskObject] -- f--> [results]
-    }
-    // Check input key w/ slot name
-    for (let iSlot of inputs) { // inputs = [{slotSymbol: inputValueAsContainer|String }, ...., {}]
-        if( !iSlot.hasOwnProperty('inputMFasta') ) continue;
-        let value = iSlot.inputMFasta; // Value is a data container
-        console.dir(value);
-        console.log('**' + typeof(value));
-*/
-    // Instantiate one task -> access to its slot list
-    /*
-1/ Async resolution of mutliple task creation (Promise.all)
-2/ upon completion => 
-    this.goReading = true;
-    STUFF = {[this.outKey] : realSTUFF }
-    this.push(JSON.stringify(STUFF))  => Stream to next task
-    this.emit("processed", STUFF)  => show STUFF 
-    taskobject index.tx:289 is the call
-    */
-/*
-    let taskArray:Promise<String>[] = [];
-    for (let key in value) {
-        let d:any = value[key];
-        let p:Promise<string> = new Promise( (resolve, reject)=> {
-            let task = new taskConstructor({ "jobManager" : this.jobManager, "jobProfile" : "default" }, {} );
-            task.on("processed", (taskOutput:string)=>{
-                console.log(`OOOO=======\n${ util.inspect(taskOutput, {showHidden: false, depth: null}) }`);
-                resolve(taskOutput);
-            });
-            console.log(`passing ${d.toString()} to atomic blast task`);
-            let container = { "inputF": d.toString() };
-            let fastaStream = new streams.Readable();
-            fastaStream.push(JSON.stringify(container));
-            fastaStream.push(null);
-            //console.dir(util.inspect(task));
-            fastaStream.pipe(task.inputF);
-        });
-        taskArray.push(p);
-    }
-    Promise.all(taskArray).then((results:string[])=>{                
-        this.prepareResults(results);
-    });
-
-
-}
-}
-*/
+ 

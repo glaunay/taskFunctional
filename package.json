@@ -20,6 +20,7 @@
     "@types/clone": "^0.1.30",
     "@types/node": "^10.5.2",
     "clone": "^2.1.1",
+    "commander": "^2.16.0",
     "winston": "^3.0.0"
   }
 }

@@ -9,7 +9,6 @@ export class Task extends tk.Task {
             this.rootdir = __dirname; // (2)
 
             this.coreScript = this.rootdir + '/../../data/dummyCoreScript.sh'; // (3)
-            console.log(this.coreScript); // (3)
             
             this.slotSymbols = ['dummyInput']; // (4)
             super.initSlots(); // (5)
