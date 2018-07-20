@@ -8,7 +8,7 @@ export class Task extends tk.Task {
         super(management, options); // (1)
             this.rootdir = __dirname; // (2)
 
-            this.coreScript = this.rootdir + '/../../data/dummyCoreScript_s2.sh'; // (3)
+            this.coreScript = this.rootdir + '/../../data/dummyCoreScript_s3.sh'; // (3)
             
             this.slotSymbols = ['dummyInput_s3a', 'dummyInput_s3b']; // (4)
             super.initSlots(); // (5)

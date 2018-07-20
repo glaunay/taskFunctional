@@ -7,6 +7,7 @@ import utils = require('util');
 import taskLib = require('taskobject/types');
 import streams = require('stream');
 import logger = require('winston');
+
 //import cType = require('ms-jobManager');
 
 /*
@@ -77,7 +78,8 @@ function coherceInputs(refereeTask:any, upStreamInputs:{}[], optInputs?:{}[]):{}
     let optInputSlot:Set<string> = optInputs ? hasIdenticalKeys(optInputs): new Set([]); // The set of input symbol present in all input litterals
    
     if(taskSlots.size - optInputSlot.size != 1) // There must be a diff of one b/w set sizes, ie: one left for the upstream output
-        throw ("Inconsistent task Slots");
+        throw (`Inconsistent task Slots 
+(downstream nSlot:${taskSlots.size} additional slot number ${optInputSlot.size})`);
 
     let availableSymbol:string|string[] = [...new Set(
         [...taskSlots].filter(x => !optInputSlot.has(x)) )];
@@ -86,12 +88,13 @@ function coherceInputs(refereeTask:any, upStreamInputs:{}[], optInputs?:{}[]):{}
     logger.debug(`${availableSymbol}`);
         //return [...availableSymbol];
     
-        let upStreamSlot:string = availableSymbol[0];
+    let upStreamSlot:string = availableSymbol[0];
+    logger.debug(`Crushing this input array${utils.format(upStreamInputs)}`);
     return upStreamInputs.map((e, i) => { 
         let d:{} = optInputs ?  optInputs[i] : {};
         d[ upStreamSlot ] = e['out'].toString();
         return d;
-    });
+     });
 }
 
 // Object returned by the map function
@@ -105,9 +108,11 @@ class functionalShell extends events.EventEmitter {
     constructor(jobManager) {
         super();
         this.jobManager = jobManager;
+        logger.debug("Invoking fShell");
     }
 
     _push(inputLitt:{}, task:any/*taskLib.taskObject*/) {
+        logger.debug("fShell._pushing");
         this.taskArray.push(
             () => {
             return new Promise( (resolve, reject)=> {
@@ -129,6 +134,7 @@ class functionalShell extends events.EventEmitter {
         });
     }
     _resolve() {
+        logger.debug("fShell._resolve");
         this.resolveProm = Promise.all( this.taskArray.map(t => t('x')) );
         this.resolveProm.then( (r)=> this.emit('resolved', r) );
         //tasks.map(t => t())
@@ -196,6 +202,8 @@ class functionalShell extends events.EventEmitter {
                 // Optional args is a list -> list of inputs (slotSymbol, value)
                 // OR list of options 
                     let tmpArray:any[] = normalize(opt, nTask);
+                    logger.debug(`About to blend::\n${utils.format(results)}\n${utils.format(tmpArray)}`);
+            
                     if( isOptIterType(tmpArray[0]) )
                         newOptions = coherceOptions(results, tmpArray);
                     else
@@ -209,8 +217,8 @@ class functionalShell extends events.EventEmitter {
                 // We update the downstream shell by reusing the top-level map function
                 // Then resolve it
                 logger.debug(`About to map downstream::\n${utils.format(newInputs)}\n${utils.format(newOptions)}`);
-                map({ 'jobManager' : this.jobManager, 'jobProfile': jobProfile }, newInputs, taskC, newInputs, newShell);      
-                newShell._resolve();          
+                map({ 'jobManager' : this.jobManager, 'jobProfile': jobProfile }, newInputs, taskC, newOptions, newShell);      
+                newShell.emit('ready');
                // newShell._resolve();
             });
         // Resolve current map
@@ -236,7 +244,7 @@ function normalize(opt:any, n:number):any[] {
     }
     let array = [];
     for (let i = 0 ; i < n ; i++) {
-        array.push(opt);
+        array.push(clone(opt));
     }
     return array;
 }
@@ -246,7 +254,7 @@ function coherceOptions(inputsIter:any[], optInputs?:{}[]|{}):optIterType[] {
 
     let optIterTypeFmt:optIterType[] = [];
     if(!optInputs)
-        return inputsIter.map( (x) => { return {logLevel : 'debug'}; });
+        return inputsIter.map( (x) => { return {logLevel : 'info'}; });
 
 
     if(optInputs instanceof Array) {
@@ -311,7 +319,9 @@ export function map(managmentBean:managementOpt, inputs:any[], taskC:any, optIte
         obj._push(inputs[i], t);
     })
 
-    obj._resolve();
+    obj.on('ready',() => {obj._resolve()});
+    if (!staticShell)
+        obj.emit('ready');
     return obj;
 }
  
