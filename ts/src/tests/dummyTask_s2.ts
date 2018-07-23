@@ -1,7 +1,9 @@
 import tk = require('taskobject');
 declare var __dirname; // mandatory
 
-export class Task extends tk.Task {
+export {DummyTask2 as Task}
+
+export class DummyTask2 extends tk.Task {
 	public readonly dummyInput_s2;
 
     constructor(management, options) {

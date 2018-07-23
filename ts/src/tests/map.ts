@@ -22,7 +22,9 @@ program
   .option('-b,--map2map', 'map into map')
   .option('-c, --map2map2', 'map into a map 2, ie injecting input vector')
   .option('-d, --map2map2i', 'map into a map 2, injecting variable and input vectors')
+  .option('-d, --map2map2j', 'map into a map 2, injecting variable, input vectors and jobProfile')
   .option('-t, --templating', 'use template to generate variables or inputs vectors')
+  .option('-i, --inverse', 'Apply a single set of inputs on a task iteree')
   .option('-n, --size <n>', 'map size (default=4)', parseInt)
   .option('-v, --verbosity [logLevel]', 'Set log level', setLogLevel, 'info')
   .parse(process.argv);
@@ -77,6 +79,17 @@ function display(d) {
     logger.info(`Chain joined OUTPUT:\n${ utils.format(d) }`);
 }
 
+if (program.inverse) {
+    /*
+        A single input // try to mess w/ keys symbol to asses check procedure
+        Generate a list of task, 3 explicit for a start
+        call map
+    */
+    let myInput = {dummyInput_s2:"2", dummyInput:"2", dummyInput_s3:"2"};
+    let myTasks = [dummyTask.Task, dummyTask_s2.Task, dummyTask_s3.Task];
+    map(myManagement, myInput, myTasks).join( display );
+}
+
 if(program.basic) {
     logger.info(`Basic map test`);
     map(myManagement, <any[]>inputs, dummyTask.Task).join( display );
@@ -109,10 +122,19 @@ else if(program.map2map2i) {
     .map(dummyTask_s2.Task, addOPt)
     .map(dummyTask_s3.Task, addInput,addOPt).join( display );
 }
-
 // pipeMapping w/ a new JobOpt template args
-  //  map(myManagement, <any[]>inputs, dummyTask.Task)
-  //  .map(dummyTask_s2.Task, myOptions)
+else if(program.map2map2j) {
+    let addInput = program.templating ? inputs2[0] : inputs2;
+    let addOPt  = program.templating ? myOptions[0] : myOptions;
+    if(program.templating)
+        logger.info(`piping a map into a map_2 w/ specific jobProfile (additional inputs and variables explicit) `);
+    else    
+        logger.info(`piping a map into a map_2  w/ specific jobProfile (additional inputs and variables by template)`);
+
+    map(myManagement, <any[]>inputs, dummyTask.Task, addOPt)
+    .map(dummyTask_s2.Task, addOPt, 'default')
+    .map(dummyTask_s3.Task, addInput,addOPt, 'default').join( display );
+}
 
 // pipeMapping w/ a new JobOpt iteree args
   //  map(myManagement, <any[]>inputs, dummyTask.Task)

@@ -137,28 +137,9 @@ class functionalShell extends events.EventEmitter {
         logger.debug("fShell._resolve");
         this.resolveProm = Promise.all( this.taskArray.map(t => t('x')) );
         this.resolveProm.then( (r)=> this.emit('resolved', r) );
-        //tasks.map(t => t())
-        //return Promise.all(this.taskArray);
     }
-   /* _join() {
-        return Promise.all(this.taskArray);
-
-    }*/
     join(callback) {
-        //if we do single stage map, it needs to be resolve first
-        /*if (!this.resolveProm)
-            this._resolve();*/
-        // if it is a downstream map, its resolve was already bound to upstream resolve...
-        
         this.on('resolved', (r) => {callback(r);});
-
-        /*this.resolveProm.then((r)=>{
-            callback(r);
-        });*/
-
-        /*this._resolve().then((r)=>{
-            callback(r);
-        })*/
     }
     // pipe into another map
     // Domain size is the results of the previous map
@@ -170,18 +151,10 @@ class functionalShell extends events.EventEmitter {
         to provide declarative interface
         */
         let newShell = new functionalShell(this.jobManager);
-        //return map({ 'jobManager' : this.jobManager, 'jobProfile': jobProfile }, newInputs, taskC, newInputs);
-
-        /*let managmentBean = {
-            jobProfile : optInput.hasOwnProperty('jobProfile') ? optInput.jobProfile : undefined,
-            jobManager : this.jobManager
-         }*/
+     
         //invoke the blue print task
         let refereeTask = new taskC({jobManager : this.jobManager});
-        // Register this._resolve Promise
-        //this._resolve();
-        // Bind Downstream map feedint and resolving to 
-        // this resolve
+        
         this.on('resolved', (results) => {
                 let nTask = results.length;
                 let newInputs;
@@ -218,11 +191,8 @@ class functionalShell extends events.EventEmitter {
                 // Then resolve it
                 logger.debug(`About to map downstream::\n${utils.format(newInputs)}\n${utils.format(newOptions)}`);
                 map({ 'jobManager' : this.jobManager, 'jobProfile': jobProfile }, newInputs, taskC, newOptions, newShell);      
-                newShell.emit('ready');
-               // newShell._resolve();
+                newShell.emit('ready');               
             });
-        // Resolve current map
-        //this._resolve();
         // Return downstream map interface
         return newShell;
     }
@@ -286,37 +256,86 @@ map(task_iteree, dataAtom).map((result)=> {
 no staticShell is passed
 a staticShell is passed
 */
-export function map(managmentBean:managementOpt, inputs:any[], taskC:any, optIteree?:optIterType|optIterType[], staticShell?:functionalShell):functionalShell {
+export function map(managmentBean:managementOpt, inputs:any[]|any, taskC:any[]|any, optIteree?:optIterType|optIterType[], staticShell?:functionalShell):functionalShell {
 
+    if (inputs instanceof Array && taskC instanceof Array) 
+        throw ('Cannot decipher iteree and application, both being list')
+
+    let iteree:any[];
+    let application:any;
+    let iTask:boolean = false;
+    if (inputs instanceof Array) { //MAPPING TASK FUNCTION ON INPUT ITEREE
+        iteree = inputs;
+        application = taskC;
+    } else {                       //MAPPING INPUT FUNCTION ON TASK ITEREE
+        iteree = taskC;
+        application = inputs;
+        iTask = true;
+    }
+   
 
 // OPTIONS ITERATOR
 
     // We have no optional iterator, create a defaut one
-    let optIterTypeFmt:optIterType[] = coherceOptions(inputs, optIteree);
+    let optIterTypeFmt:optIterType[] = coherceOptions(iteree, optIteree);
 
 // TASKS ITERATOR, fed w/ OPTIONS ITERATOR
-    let taskArray:any[] = inputs.map((e, i)=>{
+    let taskArray:any[] = iteree.map((e, i)=>{
+        if (iTask)
+            return new e(managmentBean, optIterTypeFmt[i])
         return new taskC(managmentBean, optIterTypeFmt[i]);
     });
-    let inputSymbols:string[] = taskArray[0].slotSymbols;
-    let jmClient = taskArray[0].jobManager;
-    let jProfile = managmentBean.jobProfile ? managmentBean.jobProfile : undefined;
-    console.log(`Mapping ${utils.format(inputs)} vs ${inputSymbols}`)
 
+   
+    
 
-    for (let x of inputSymbols) 
-        for (let y of inputs) 
-            if (! y.hasOwnProperty(x))
-                throw `Property ${x} missing in inputs iteree`;
+    if (!iTask) {
+        let inputSymbols:string[] = taskArray[0].slotSymbols;
+        logger.debug(`Mapping ${utils.format(inputs)} vs ${inputSymbols}`)
+
+        for (let x of inputSymbols) 
+            for (let y of inputs) 
+                if (! y.hasOwnProperty(x))
+                    throw `Property ${x} missing in inputs iteree`;
+    } else {
+        // Getting union set of all task symbols
+        let neededSymbolSet = new Set();
+        for (let task of iteree) 
+            for (let slotSymbol of task.slotSymbols)
+                neededSymbolSet.add(slotSymbol);
+        
+        logger.debug(`Mapping ${utils.format(inputs)} vs ${neededSymbolSet}`)
+
+        let _inter = new Set();
+        for (let k in inputs) {  // inputs is a litteral which keys could match a slot symbol
+            if (neededSymbolSet.has(k)) {
+                _inter.add(k);
+            }
+        }
+        if (_inter.size != neededSymbolSet.size) {
+            let missSym = new Set();
+            for (let k of neededSymbolSet)
+                if (!_inter.has(k))
+                    missSym.add(k);
+            
+            throw(`Missing ${missSym.size} slot(s) --symbol based-- among ${neededSymbolSet.size} required\n${missSym}`)
+        }
+    }
+    
     if (!staticShell)
         logger.debug("map basic check Ok, invoking functional shell");
     else 
         logger.debug("map basic check Ok, updating passed functional shell");
-    
+
+
+    let jmClient = taskArray[0].jobManager;
+    let jProfile = managmentBean.jobProfile ? managmentBean.jobProfile : undefined;
+        
     let obj:functionalShell = staticShell ? staticShell : new functionalShell(jmClient);
     // BIND BOTH TASK ITERATORS AND INPUT INTERATOR
     taskArray.forEach((t, i)=>{
-        obj._push(inputs[i], t);
+        let _input = iTask ? inputs : inputs[i];
+        obj._push(_input, t);
     })
 
     obj.on('ready',() => {obj._resolve()});

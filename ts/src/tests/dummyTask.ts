@@ -1,10 +1,15 @@
 import tk = require('taskobject');
 declare var __dirname; // mandatory
 
-export class Task extends tk.Task {
+
+
+export {DummyTask as Task}
+
+export class DummyTask extends tk.Task {
 	public readonly dummyInput;
 
     constructor(management, options) {
+        console.dir(management);
         super(management, options); // (1)
             this.rootdir = __dirname; // (2)
 
