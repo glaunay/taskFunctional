@@ -52,6 +52,8 @@ let myOptions = inputs.map((e, i)=>{
 
 jobManager.start({ "TCPip": "localhost", "port": "2323" })
     .on("ready", () => {
+       // process.exit();
+
     let myManagement = {
         'jobManager' : jobManager,
         'jobProfile' : 'dummy'

@@ -117,7 +117,7 @@ class functionalShell extends events.EventEmitter {
             () => {
             return new Promise( (resolve, reject)=> {
                 task.on("processed", (taskOutput:string)=>{
-                    console.log(`OOOO=======\n${ util.inspect(taskOutput, {showHidden: false, depth: null}) }`);
+                    logger.info(`taskOutput:\n${ util.inspect(taskOutput, {showHidden: false, depth: null}) }`);
                     resolve(taskOutput);
                 });
                 for (let symbol of task.slotSymbols) {
