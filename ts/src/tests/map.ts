@@ -1,9 +1,8 @@
 /*
-    Use non-default job profile
-    Take a task constructor
-    Take a list as inputs
-    map task on list
-*/
+TODO
+    pipeMapping w/ a new JobOpt iteree args 
+
+    */
 
 import jobManager = require('ms-jobmanager');
 import dummyTask = require('./dummyTask');
@@ -29,8 +28,6 @@ program
   .option('-v, --verbosity [logLevel]', 'Set log level', setLogLevel, 'info')
   .parse(process.argv);
 
-  //console.dir(utils.format(logger));
-
 logger.debug("\t\tStarting map test");
 
 /*
@@ -53,31 +50,14 @@ let myOptions = inputs.map((e, i)=>{
 
 
 jobManager.start({ "TCPip": "localhost", "port": "2323" })
-    .on("ready", () => {
-       // process.exit();
-
+.on("ready", () => {
     let myManagement = {
         'jobManager' : jobManager,
         'jobProfile' : 'dummy'
     }
-    
-    //logger.info(`my managment litteral:\n${utils.format(myManagement)}`);
-
-    /*
-    let myOptions = {
-        'logLevel': 'debug'/*,
-        'modules' : ['myModule1', 'myModule2'],
-        'exportVar' : { 'myVar1' : '/an/awesome/path/to/a/file.exe'},
-    };*/
-    /*
-    let dTask = new dummyTask.Task(myManagement, myOptions);
-    let dTask_s2 = new dummyTask_s2.Task(myManagement, myOptions);
-*/
-
-
-function display(d) {
-    logger.info(`Chain joined OUTPUT:\n${ utils.format(d) }`);
-}
+    function display(d) {
+        logger.info(`Chain joined OUTPUT:\n${ utils.format(d) }`);
+    }
 
 if (program.inverse) {
     /*
@@ -89,8 +69,7 @@ if (program.inverse) {
     let myTasks = [dummyTask.Task, dummyTask_s2.Task, dummyTask_s3.Task];
     map(myManagement, myInput, myTasks).join( display );
 }
-
-if(program.basic) {
+else if(program.basic) {
     logger.info(`Basic map test`);
     map(myManagement, <any[]>inputs, dummyTask.Task).join( display );
 }
@@ -135,23 +114,5 @@ else if(program.map2map2j) {
     .map(dummyTask_s2.Task, addOPt, 'default')
     .map(dummyTask_s3.Task, addInput,addOPt, 'default').join( display );
 }
-
-// pipeMapping w/ a new JobOpt iteree args
-  //  map(myManagement, <any[]>inputs, dummyTask.Task)
-  //  .map(dummyTask_s2.Task, myOptions)
-  
-  /*
-    let aFirstInput = "2";
-    let rs = new stream.Readable();
-    rs.push( JSON.stringify({ "dummyInput":aFirstInput }) ); // JSON format
-    rs.push(null);
-
-    rs.pipe(dTask.dummyInput);
-
-    dTask.on('processed', res => {
-	    console.log("I have my results :");
-	    console.log(res);
-    })
-    */
 
 });
