@@ -113,6 +113,7 @@ class functionalShell extends events.EventEmitter {
 
     _push(inputLitt:{}, task:any/*taskLib.taskObject*/) {
         logger.debug("fShell._pushing");
+
         this.taskArray.push(
             () => {
             return new Promise( (resolve, reject)=> {
@@ -281,8 +282,11 @@ export function map(managmentBean:managementOpt, inputs:any[]|any, taskC:any[]|a
 
 // TASKS ITERATOR, fed w/ OPTIONS ITERATOR
     let taskArray:any[] = iteree.map((e, i)=>{
-        if (iTask)
-            return new e(managmentBean, optIterTypeFmt[i])
+        if (iTask) {
+            let obj =  new e(managmentBean, optIterTypeFmt[i]);
+            logger.debug(`${obj.slotSymbols}`);
+            return obj;
+        }
         return new taskC(managmentBean, optIterTypeFmt[i]);
     });
 
@@ -298,27 +302,32 @@ export function map(managmentBean:managementOpt, inputs:any[]|any, taskC:any[]|a
                 if (! y.hasOwnProperty(x))
                     throw `Property ${x} missing in inputs iteree`;
     } else {
+        logger.debug(`Array of task of length ${iteree.length}`);
         // Getting union set of all task symbols
         let neededSymbolSet = new Set();
-        for (let task of iteree) 
+        let inputSymbolSet:Set<string> = new Set(
+            Object.keys(inputs)
+        )
+        for (let task of taskArray) {
+            logger.silly(`${utils.format(task)}`);
+            logger.debug(`${utils.format(task.slotSymbols)}`);
             for (let slotSymbol of task.slotSymbols)
                 neededSymbolSet.add(slotSymbol);
-        
-        logger.debug(`Mapping ${utils.format(inputs)} vs ${neededSymbolSet}`)
+        } 
+        logger.debug(`Providing ${utils.format(inputSymbolSet)} while needing ${utils.format(neededSymbolSet)}`)
 
         let _inter = new Set();
-        for (let k in inputs) {  // inputs is a litteral which keys could match a slot symbol
-            if (neededSymbolSet.has(k)) {
-                _inter.add(k);
-            }
-        }
+        for (let s of neededSymbolSet) 
+            if(inputSymbolSet.has(s))
+                _inter.add(s);
+        
         if (_inter.size != neededSymbolSet.size) {
             let missSym = new Set();
             for (let k of neededSymbolSet)
                 if (!_inter.has(k))
                     missSym.add(k);
             
-            throw(`Missing ${missSym.size} slot(s) --symbol based-- among ${neededSymbolSet.size} required\n${missSym}`)
+            throw(`Missing ${missSym.size} slot(s) --symbol based-- among ${neededSymbolSet.size} required\n${utils.format(missSym)}`)
         }
     }
     
@@ -332,7 +341,7 @@ export function map(managmentBean:managementOpt, inputs:any[]|any, taskC:any[]|a
     let jProfile = managmentBean.jobProfile ? managmentBean.jobProfile : undefined;
         
     let obj:functionalShell = staticShell ? staticShell : new functionalShell(jmClient);
-    // BIND BOTH TASK ITERATORS AND INPUT INTERATOR
+    // BIND BOTH TASK ITERATORS AND INPUT ITERATOR
     taskArray.forEach((t, i)=>{
         let _input = iTask ? inputs : inputs[i];
         obj._push(_input, t);

@@ -85,7 +85,7 @@ if (program.inverse) {
         Generate a list of task, 3 explicit for a start
         call map
     */
-    let myInput = {dummyInput_s2:"2", dummyInput:"2", dummyInput_s3:"2"};
+    let myInput = {dummyInput_s2:"2", dummyInput:"2", dummyInput_s3a:"2", dummyInput_s3b:"2"};
     let myTasks = [dummyTask.Task, dummyTask_s2.Task, dummyTask_s3.Task];
     map(myManagement, myInput, myTasks).join( display );
 }
