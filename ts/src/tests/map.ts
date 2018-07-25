@@ -11,7 +11,7 @@ import dummyTask_s3 = require('./dummyTask_s3');
 import {logger, setLogLevel} from '../logger.js';
 import utils = require('util');
 
-import {map} from '../index';
+import {map, forEach} from '../index';
 
 import program = require('commander');
 
@@ -24,6 +24,7 @@ program
   .option('-d, --map2map2j', 'map into a map 2, injecting variable, input vectors and jobProfile')
   .option('-t, --templating', 'use template to generate variables or inputs vectors')
   .option('-i, --inverse', 'Apply a single set of inputs on a task iteree')
+  .option('-f, --forEach', 'Loop over an iterable to apply a map_i to each element')
   .option('-n, --size <n>', 'map size (default=4)', parseInt)
   .option('-v, --verbosity [logLevel]', 'Set log level', setLogLevel, 'info')
   .parse(process.argv);
@@ -59,12 +60,21 @@ jobManager.start({ "TCPip": "localhost", "port": "2323" })
         logger.info(`Chain joined OUTPUT:\n${ utils.format(d) }`);
     }
 
-if (program.inverse) {
-    /*
-        A single input // try to mess w/ keys symbol to asses check procedure
-        Generate a list of task, 3 explicit for a start
-        call map
-    */
+if(program.forEach) {
+    let myInputs = [
+        {dummyInput_s2:"2", dummyInput:"2", dummyInput_s3a:"2", dummyInput_s3b:"2"},
+        {dummyInput_s2:"3", dummyInput:"3", dummyInput_s3a:"3", dummyInput_s3b:"3"}
+    ];
+    let myTasks = [dummyTask.Task, dummyTask_s2.Task, dummyTask_s3.Task];
+
+    logger.info("coucou");
+    forEach( myInputs, (i)=> map(myManagement, i, myTasks) ) // Callback must return a fShell
+    .join((r)=> {
+        logger.info(`${utils.format(r)}`);
+    });
+}
+
+else if (program.inverse) {
     let myInput = {dummyInput_s2:"2", dummyInput:"2", dummyInput_s3a:"2", dummyInput_s3b:"2"};
     let myTasks = [dummyTask.Task, dummyTask_s2.Task, dummyTask_s3.Task];
     map(myManagement, myInput, myTasks).join( display );

@@ -273,3 +273,66 @@ function map(managmentBean, inputs, taskC, optIteree, staticShell) {
     return obj;
 }
 exports.map = map;
+/*
+// No manipulation of task objects directly
+
+
+receives a callback
+
+returns a Promise functional shell
+
+What interface do we want to provide ?
+
+join ?
+pipe ?
+reduce ?
+
+*/
+function forEach(iteree, callback) {
+    return new forEachShell(iteree, callback);
+}
+exports.forEach = forEach;
+class forEachShell extends events.EventEmitter {
+    constructor(iteree, callbackf) {
+        super();
+        this.array = [];
+        this.array = iteree.map((x) => () => {
+            return new Promise((resolve, reject) => {
+                let y = callbackf(x);
+                y.on('resolved', (r) => {
+                    resolve(r);
+                });
+            });
+        });
+        // No upstream dependies implemented yet
+        // we fire asap
+        this._resolve();
+    }
+    _resolve() {
+        logger.debug("forEachShell._resolve");
+        this.resolveProm = Promise.all(this.array.map(t => t('x')));
+        this.resolveProm.then((r) => this.emit('resolved', r));
+    }
+    join(callback) {
+        this.on('resolved', (r) => { callback(r); });
+    }
+}
+/*
+export function forEach(iteree:any[], f:fShellCallback) {
+    
+    let array = iteree.map( (x) => {
+        return () => {
+            return new Promise( (resolve,reject) => {
+                let y:functionalShell = f(x);
+                y.on('resolved',(r)=>{
+                    resolve(r);
+                });
+
+            }
+        );
+    }
+
+    Promise.all( array.map(t => t()) );
+}
+
+*/ 

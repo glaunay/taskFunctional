@@ -25,6 +25,8 @@
       "./ts/src/index.ts",
       "./ts/src/tests/map.ts",
       "./ts/src/tests/dummyTask.ts",
+      "./ts/src/tests/dummyTask_s2.ts",
+      "./ts/src/tests/dummyTask_s3.ts",
       "./ts/src/logger.ts"
   ],
   "exclude" : [  
