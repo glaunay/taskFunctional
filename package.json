@@ -21,7 +21,7 @@
     "@types/node": "^10.5.2",
     "clone": "^2.1.1",
     "commander": "^2.16.0",
-    "taskobject": "^2.1.10",
+    "taskobject": "^2.1.11",
     "winston": "^3.0.0"
   }
 }
