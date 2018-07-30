@@ -408,8 +408,22 @@ class forEachShell extends events.EventEmitter {
     join(callback) {
         this.on('resolved', (r) => {callback(r);});
     }
-
+    // Provide reduce-like interface
+    // we nest out results
+    reduce<T>(f:any):Promise<T>{
+        let p = new Promise<T>( (resolve, reject)=> {
+            let accumul:T|undefined = undefined;
+            this.on('resolved', (results:any[]) => {
+                results.forEach((e,i) => {                   
+                    accumul = f(accumul, e.map((x)=>x['out']), i);
+                });
+                resolve(accumul);
+            });
+        });
+        return p;
+    };
 }
+
 /*
 export function forEach(iteree:any[], f:fShellCallback) {
     
